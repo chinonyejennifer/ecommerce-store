@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>eCharts</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.1/dist/echarts.min.js"></script>
+</head>
+
+<body>
+    <!-- Container for Bootstrap cards and dropdown -->
+    <div class="container">
+        <!-- Dropdown to select product categories -->
+        <div class="form-group">
+            <label for="categorySelect">Select Category:</label>
+            <select class="form-control" id="categorySelect" onchange="filterProducts(this.value)">
+                <option value="">All Categories</option>
+            </select>
+        </div>
+
+        <!-- Cards will be dynamically added here -->
+        <div class="row" id="productCards">
+            <!-- Cards will be dynamically added here -->
+        </div>
+    </div>
+
+    <script type="text/javascript">
+        // Specify the configuration items and data for the chart
+        let options = {
+            title: { text: "Fake Store Categories" },
+            xAxis: {
+                data: ["Category 1", "Category 2", "Category 3", "Category 4"],
+            },
+            yAxis: {},
+            series: [
+                {
+                    name: "# products",
+                    type: "bar",
+                    data: [0, 1, 5, 2],
+                },
+            ],
+        };
+
+        // Map solution
+        function updateChartOptions(products) {
+            // 1. figure out all categories
+            // 2. count the number of products in each category
+            let categories = new Map();
+
+            products.forEach((product) => {
+                let existingCatCount = categories.get(product.category);
+
+                // if we've seen this category already, add one to the product count
+                if (existingCatCount > 0) {
+                    categories.set(product.category, ++existingCatCount);
+                } else {
+                    // otherwise this is the first product for this category, so set count to 1
+                    categories.set(product.category, 1);
+                }
+            });
+
+            options.xAxis.data = [...categories.keys()];
+            options.series[0].data = [...categories.values()];
+
+            // Populate category dropdown
+            populateCategoryDropdown(categories);
+            // Render product cards
+            renderProductCards(products);
+        }
+
+        // Function to render Bootstrap product cards
+        function renderProductCards(products) {
+            let productCardsContainer = document.getElementById("productCards");
+
+            // Clear previous content
+            productCardsContainer.innerHTML = '';
+
+            // Loop through products to create cards
+            products.forEach(product => {
+                let card = `
+                    <div class="col-md-4">
+                        <div class="card mb-4 shadow-sm">
+                            <img src="${product.image}" class="card-img-top" alt="${product.title}">
+                            <div class="card-body">
+                                <h5 class="card-title">${product.title}</h5>
+                                <p class="card-text">${product.description}</p>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div class="btn-group">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary">View</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary">Add to Cart</button>
+                                    </div>
+                                    <small class="text-muted">$${product.price}</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                productCardsContainer.innerHTML += card;
+            });
+        }
+
+        // Function to populate category dropdown
+        function populateCategoryDropdown(categories) {
+            let categorySelect = document.getElementById("categorySelect");
+
+            // Clear previous options
+            categorySelect.innerHTML = '<option value="">All Categories</option>';
+
+            // Populate dropdown with categories
+            categories.forEach((value, key) => {
+                let option = document.createElement("option");
+                option.text = key;
+                categorySelect.add(option);
+            });
+        }
+
+        // Function to filter products by selected category
+        async function filterProducts(category) {
+            try {
+                // Construct the API endpoint with the appropriate category query parameter
+                const url = category
+                    ? `http://localhost:4000/myStore/products?category=${category}` : 'http://localhost:4000/myStore/products';
+
+                // Fetch the filtered products from the backend
+                const response = await fetch(url);
+
+                // Check if the response is successful
+                if (!response.ok) {
+                    console.error(`Error fetching products: ${response.status}`);
+                    return;
+                }
+
+                // Parse the response JSON data
+                const data = await response.json();
+
+                // Ensure that the products field exists in the response
+                if (!data.products) {
+                    console.error('Unexpected response structure:', data);
+                    return;
+                }
+
+                // Call the function to render products on the frontend
+                renderProductCards(data.products);
+            } catch (error) {
+                console.error('Error fetching or rendering products:', error);
+            }
+        }
+
+        fetch("https://fakestoreapi.com/products")
+            .then((response) => response.json())
+            .then((json) => {
+                updateChartOptions(json);
+            })
+            .then(() => {
+                // Display the chart
+                myChart.setOption(options);
+            });
+
+        // Initialise the echarts instance based on the prepared div
+        let myChart = echarts.init(document.getElementById("main"));
+    </script>
+</body>
+
+</html>
